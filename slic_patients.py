@@ -17,5 +17,5 @@ if __name__ == '__main__':
     for patient, slice_no in metadata.query(args.query)[['patient', 'slice']].drop_duplicates().sort_values(['patient', 'slice']).to_records(index=False):
     # for patient, slice_no in metadata.query(args.query)[['patient_id', 'slice_id']].drop_duplicates().to_records(index=False):
         os.system(
-            f'python3 ./slic_slice.py --patient {patient} --slice {slice_no} --n_segments {args.n_segments} --dest {args.dest}'
+            f'python3 ./slic_slice-v1.py --patient {patient} --slice {slice_no} --n_segments {args.n_segments} --dest {args.dest}'
         )
