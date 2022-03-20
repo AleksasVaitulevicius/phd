@@ -198,6 +198,7 @@ def train_kfolds(Y, X, folds, segmentation_id):
 	ax.set_xlabel('True positive rate')
 	plt.legend(labels=['TPR x FPR', 'threshold'] * 5)
 	plt.savefig(f'./roc/{MODEL}_segmentation-{segmentation_id}.png')
+	plt.close()
 	return (
         segmentation_id,
 		np.mean(f1s),
@@ -216,74 +217,73 @@ def train_kfolds(Y, X, folds, segmentation_id):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--segmentation', type=int, required=True)
-    parser.add_argument('--model', type=str, default=MODEL)
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--segmentation', type=int, required=True)
+	parser.add_argument('--dest', type=str, required=True)
+	parser.add_argument('--model', type=str, default=MODEL)
 
-    args = parser.parse_args()
-    
-    MODEL = args.model
-    segmentation_id = args.segmentation
-    file = f'./segmentations/segmentation-{segmentation_id}.csv'
-    dataset = (
-        pd.read_csv(
-            file,
-			dtype={
-				'img_type': int,
-				'patient_id': int,
-				'cycle_id': int,
-				'slice_id': int,
-				'label': str,
-				'mask_int_mean': float,
-				'segment': int,
-			},
-        )
-            .assign(label=lambda x: x.label.astype(str) == 'True')
-            .drop_duplicates()
-            .sort_values(agg_columns + ['cycle_id'])
-    )
-    dataset = dataset[dataset.patient_id.apply(lambda x: x not in [3, 6, 7, 8, 10, 11, 14, 19, 27, 29, 37, 60, 66, 76, 86, 108, 119, 122, 123, 128, 133, 140])]
-    # dataset = dataset[dataset.patient_id.apply(lambda x: x not in [2, 32, 35, 40, 41, 45, 52, 92, 107, 110, 114, 116, 139])]
-    dataset = dataset.merge(dataset.query('label == True').patient_id.drop_duplicates())
-    # print('using patients:')
-    # print(dataset.patient_id.drop_duplicates())
-    ts = (
-        dataset[['patient_id', 'cycle_id']].drop_duplicates()
-            .groupby('patient_id').cycle_id.count()
-            .apply(lambda x: np.linspace(0, 1, int(x)))
-            .reset_index()
-    )
+	args = parser.parse_args()
 
-    dataset = dataset.groupby(agg_columns + ['label']).mask_int_mean.apply(list).reset_index()
-    bsplined = dataset.groupby('patient_id').mask_int_mean.apply(list).reset_index().merge(ts)
-    bsplined = bsplined.apply(
-        lambda x: smoother.fit_transform(
-            FDataGrid(data_matrix=x['mask_int_mean'], grid_points=x['cycle_id'])
-        ),
-        axis='columns',
-    )
-    print('registering ...')
-    bsplined = [get_landmark_registration(fd_smooth, 1) for fd_smooth in bsplined]
-    print('getting depths ...')
-    ids = np.vstack([ID(fd_smooth).reshape(-1, 1) for fd_smooth in bsplined])
-    mbds = np.vstack([MBD(fd_smooth).reshape(-1, 1) for fd_smooth in bsplined])
-    print('getting other features ...')
-    max_values = np.vstack(
-        [fd_smooth.data_matrix.max(axis=1).reshape(-1, 1) for fd_smooth in bsplined]
-    )
-    descret_points = np.vstack([get_descrete_points(fd_smooth) for fd_smooth in bsplined])
-    patients = dataset.patient_id.to_numpy().reshape(-1, 1)
-    slices = dataset.slice_id.to_numpy().reshape(-1, 1)
-    
-    train_set = np.hstack([ids, mbds, max_values, descret_points, patients])
-    labels = l_enc.fit_transform(dataset.label.astype(int).tolist())
-    if MODEL == 'xgb':
-        labels = dataset.label.astype(int).to_numpy()
+	MODEL = args.model
+	segmentation_id = args.segmentation
+	file = f'./segmentations/segmentation-{segmentation_id}.csv'
+	dataset = (
+	pd.read_csv(
+		file,
+		dtype={
+			'img_type': int,
+			'patient_id': int,
+			'cycle_id': int,
+			'slice_id': int,
+			'label': bool,
+			'mask_int_mean': float,
+			'segment': int,
+		},
+	)
+	.drop_duplicates()
+	.sort_values(agg_columns + ['cycle_id'])
+	)
+	dataset = dataset[dataset.patient_id.apply(lambda x: x not in [3, 6, 7, 8, 10, 11, 14, 19, 27, 29, 37, 60, 66, 76, 108, 119, 122, 123, 128, 133, 140])]
+	# dataset = dataset[dataset.patient_id.apply(lambda x: x not in [2, 32, 35, 40, 41, 45, 52, 92, 107, 110, 114, 116, 139])]
+	dataset = dataset.merge(dataset.query('label == True').patient_id.drop_duplicates())
+	# dataset = dataset[dataset.patient_id.apply(lambda x: x not in [3, 6, 29, 86, 108, 119, 140])]
+	ts = (
+		dataset[['patient_id', 'cycle_id']].drop_duplicates()
+			.groupby('patient_id').cycle_id.count()
+			.apply(lambda x: np.linspace(0, 1, int(x)))
+			.reset_index()
+	)
 
-    pd.DataFrame(
-        [train_kfolds(labels, train_set, kfolds(dataset, 5), segmentation_id)],
-        columns=[
-            'segmentation', 'F1', 'precision', 'recall', 'accuracy', 'specificity',
-            'train_F1', 'train_precision', 'train_recall', 'train_accuracy', 'train_specificity',
-        ]
-    ).to_csv(f'./{MODEL}_metrics_v3.csv', index=False, mode='a', header=False)
+	dataset = dataset.groupby(agg_columns + ['label']).mask_int_mean.apply(list).reset_index()
+	bsplined = dataset.groupby('patient_id').mask_int_mean.apply(list).reset_index().merge(ts)
+	bsplined = bsplined.apply(
+		lambda x: smoother.fit_transform(
+			FDataGrid(data_matrix=x['mask_int_mean'], grid_points=x['cycle_id'])
+		),
+		axis='columns',
+	)
+	print('registering ...')
+	bsplined = [get_landmark_registration(fd_smooth, 1) for fd_smooth in bsplined]
+	print('getting depths ...')
+	ids = np.vstack([ID(fd_smooth).reshape(-1, 1) for fd_smooth in bsplined])
+	mbds = np.vstack([MBD(fd_smooth).reshape(-1, 1) for fd_smooth in bsplined])
+	print('getting other features ...')
+	max_values = np.vstack(
+		[fd_smooth.data_matrix.max(axis=1).reshape(-1, 1) for fd_smooth in bsplined]
+	)
+	descret_points = np.vstack([get_descrete_points(fd_smooth) for fd_smooth in bsplined])
+	patients = dataset.patient_id.to_numpy().reshape(-1, 1)
+	slices = dataset.slice_id.to_numpy().reshape(-1, 1)
+
+	train_set = np.hstack([ids, mbds, max_values, descret_points, patients])
+	labels = l_enc.fit_transform(dataset.label.astype(int).tolist())
+	if MODEL == 'xgb':
+		labels = dataset.label.astype(int).to_numpy()
+
+	pd.DataFrame(
+		[train_kfolds(labels, train_set, kfolds(dataset, 5), segmentation_id)],
+		columns=[
+			'segmentation', 'F1', 'precision', 'recall', 'accuracy', 'specificity',
+			'train_F1', 'train_precision', 'train_recall', 'train_accuracy', 'train_specificity',
+		]
+	).to_csv(args.dest, index=False, mode='a', header=False)
