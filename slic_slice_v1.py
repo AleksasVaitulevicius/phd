@@ -84,12 +84,12 @@ def slic_cycle(
 	slice_i, benign_zones = color_segments(
 		n_segments, both, slice_i, segments, (-1, 0), (0, 1, 0), to_number,
 	)
-	# slice_i = mark_boundaries(slice_i, malignant, color=(1, 0, 1))
-	# slice_i = mark_boundaries(slice_i, undetermined, color=(0, 1, 1))
-	# with Image.fromarray(np.uint8(slice_i * 255)) as img:
-	# 	img.save(
-	# 		f'{path_segments}{patient}/{cycle_id}-{slice_no}.png'
-	# 	)
+	slice_i = mark_boundaries(slice_i, malignant, color=(1, 0, 1))
+	slice_i = mark_boundaries(slice_i, undetermined, color=(0, 1, 1))
+	with Image.fromarray(np.uint8(slice_i * 255)) as img:
+		img.save(
+			f'{path_segments}{patient}/{cycle_id}-{slice_no}.png'
+		)
 	return (
         segments, cycle_id,
         confirmed_cancer, confirmed_cancer_less,
@@ -113,7 +113,7 @@ def color_segments(
 			and cancer_in_region.shape[0] / region.shape[0] <= cancer_coverage[1]
 		):
 			marked_segments += [segment_id]
-			# marked = mark_boundaries(marked, segments == segment_id, color=to_color)
+			marked = mark_boundaries(marked, segments == segment_id, color=to_color)
 			# if to_number:
 			# 	coords = np.argwhere(segments == segment_id)
 			# 	x = np.quantile([axis for axis, _ in coords], 0.5)
@@ -171,6 +171,7 @@ def aggregate_segment(slice_i, seg_i, segments, cycle_id, agg_func=np.median):
 def process_slic(patient, slice_no, n_segments, dest):
 	print(f'patient {patient}, slice={slice_no}')
 	segments_list = slic_slice(patient, slice_no, n_segments)
+	return
 	if not segments_list:
 		return
 	segment_means = [
