@@ -43,7 +43,6 @@ def slic_slice(
 	if not os.path.exists(f'{path_segments}{patient}-{n_segments}'):
 		os.makedirs(f'{path_segments}{patient}-{n_segments}')
 		os.makedirs(f'{path_segments}{patient}-{n_segments}/contour')
-		os.makedirs(f'{path_segments}{patient}-{n_segments}/filled')
 
 	cycle_ids = get_cycles(patient, slice_no, path_norm)
 	return [
@@ -96,21 +95,26 @@ def slic_cycle(
 		mask=prostate_mask,
 	)
 
-	slice_i, confirmed_cancer = color_segments(
-		cycle_id, n_segments, cancer_mask, malignant, slice_i, segments,
-		(0.5, 1), (0, 1), (1, 0, 0), to_number,
-	)
 	slice_i, unconfirmed_cancer = color_segments(
 		cycle_id, n_segments, cancer_mask, malignant, slice_i, segments,
-		(0.5, 1), (-1, 0), (1, 0.5, 0), to_number,
+		(0.5, 1), (-1, 0), (1, 0.5, 0), to_number, # SLIGHTLY RED UNCONFIRMED
+		# (0.5, 1), (-1, 0), (1, 1, 1), to_number, # WHITE UNCONFIRMED
+		# (0.5, 1), (-1, 0), (0, 0, 1), to_number, # BLUE UNCONFIRMED
 	)
 	slice_i, _ = color_segments(
 		cycle_id, n_segments, cancer_mask, malignant, slice_i, segments,
-		(-1, 0.5), (-1, 1), (1, 1, 1), to_number,
+		(-1, 0.5), (-1, 1), (1, 1, 1), to_number, # WHITE NEITHER
+		# (-1, 0.5), (-1, 1), (0, 0, 1), to_number, # BLUE NEITHER
+	)
+	slice_i, confirmed_cancer = color_segments(
+		cycle_id, n_segments, cancer_mask, malignant, slice_i, segments,
+		(0.5, 1), (0, 1), (1, 0, 0), to_number, # RED CONFIRMED
+		# (0.5, 1), (0, 1), (0, 0, 1), to_number, # BLUE CONFIRMED
 	)
 	slice_i, benign_zones = color_segments(
 		cycle_id, n_segments, cancer_mask, malignant + undetermined, slice_i, segments,
-		(-1, 0), (-1, 0), (0, 1, 0), to_number,
+		(-1, 0), (-1, 0), (0, 1, 0), to_number, # GREEN BENIGN
+		# (-1, 0), (-1, 0), (0, 0, 1), to_number, # BLUE BENIGN
 	)
 	slice_i = mark_boundaries(slice_i, cancer_mask, color=(0, 1, 1))
 	slice_i = mark_boundaries(slice_i, malignant, color=(1, 0, 0))
@@ -216,7 +220,7 @@ def process_slic(patient, slice_no, n_segments, dest):
 		segments_means_foreach_slice(
 			patient, slice_no, segments, n_segments,
 			confirmed_cancer, unconfirmed_cancer, benign_zones,
-			lambda x: x.mean(), segmented_in_cycle=cycle_id,
+			np.median, segmented_in_cycle=cycle_id,
 		)
 		for segments, cycle_id, confirmed_cancer, unconfirmed_cancer, benign_zones in segments_list
 	]
