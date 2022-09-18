@@ -171,7 +171,6 @@ def aggregate_segment(slice_i, seg_i, segments, cycle_id, agg_func=np.median):
 def process_slic(patient, slice_no, n_segments, dest):
 	print(f'patient {patient}, slice={slice_no}')
 	segments_list = slic_slice(patient, slice_no, n_segments)
-	return
 	if not segments_list:
 		return
 	segment_means = [

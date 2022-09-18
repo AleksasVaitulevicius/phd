@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
 	metadata = (
 		pd.read_csv('./processed/metadata.csv')
-			.query('slic_size != 0 and slic_size == slic_size')
+			.query('slic_size != 0 and slic_size == slic_size and has_prostate')
 			.assign(slic_size=lambda x: x.slic_size.astype(int))
 	)
 
@@ -40,5 +40,5 @@ if __name__ == '__main__':
 			.to_records(index=False)
 	):
 		os.system(
-			f'python3 ./slic_slice_v1.py --patient {patient} --slice {slice_no} --n_segments {n_segments} --dest {dest}'
+			f'python3 ./slic_slice_new_labels.py --patient {patient} --slice {slice_no} --n_segments {n_segments} --dest {dest}'
 		)
